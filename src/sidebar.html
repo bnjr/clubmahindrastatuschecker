@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Club Mahindra Status Checker</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 10px;
+      }
+      .resortList {
+        list-style: none;
+        padding: 0;
+      }
+      .resortList li {
+        border: 1px solid #000;
+        margin-bottom: 5px;
+        padding: 5px;
+      }
+      /* New styles for the input section */
+      #inputSection {
+        display: none; /* Hide the input section initially */
+        background-color: #f2f2f2;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+      }
+      #inputSection label,
+      #inputSection input,
+      #inputSection button {
+        display: block; /* Make them stack vertically */
+        margin-bottom: 10px; /* Add some space between them */
+      }
+      #inputSection input[type='date'] {
+        width: 100%;
+        padding: 6px 10px;
+        box-sizing: border-box;
+        border: 2px solid #ccc;
+        border-radius: 4px;
+      }
+      #inputSection .check-btn {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #inputSection .check-btn:hover {
+        background-color: #45a049;
+      }
+      /* New styles for the buttons section */
+      #resetSection {
+        display: none; /* Hide the buttons section initially */
+        flex-direction: row; /* Make them side by side */
+        justify-content: space-between; /* Add some space between them */
+        margin-top: 10px;
+      }
+      #resetSection button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loginState">Checking login state...</div>
+    <!-- Input section -->
+    <div id="inputSection">
+      <label for="startDate">Start Date:</label>
+      <input type="date" id="startDate" />
+
+      <label for="endDate">End Date:</label>
+      <input type="date" id="endDate" />
+
+      <button class="check-btn" id="checkAvailabilityButton">
+        Check Availability
+      </button>
+    </div>
+
+    <!-- Buttons section -->
+    <div id="resetSection" style="display: none">
+      <!-- Hide buttons section initially -->
+      <button id="resetButton">Reset</button>
+      <button id="uncheckAllButton">Uncheck All</button>
+    </div>
+
+    <div id="resortData"></div>
+
+    <script src="sidebar.ts"></script>
+  </body>
+</html>

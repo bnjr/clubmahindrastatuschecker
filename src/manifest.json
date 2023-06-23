@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+  "name": "Club Mahindra Status Checker",
+  "version": "1.0",
+  "permissions": [
+    "https://*.clubmahindra.com/*",
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "webNavigation",
+    "activeTab"
+  ],
+  "background": {
+    "scripts": ["background.ts"]
+  },
+  "browser_action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "sidebar_action": {
+    "default_title": "Club Mahindra Status Checker",
+    "default_panel": "sidebar.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
