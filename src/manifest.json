@@ -1,28 +1,23 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Club Mahindra Status Checker",
-  "version": "1.0.1",
-  "permissions": [
-    "https://*.clubmahindra.com/*",
-    "storage",
-    "webRequest",
-    "webRequestBlocking",
-    "webNavigation",
-    "activeTab"
-  ],
-  "background": {
-    "scripts": ["background.ts"]
+  "description": "Check with availability of Club Mahindra Resorts.",
+  "version": "0.0.1",
+  "permissions": ["sidePanel", "webRequest", "declarativeNetRequest"],
+  "action": {
+    "default_title": "Click to open sidebar"
   },
-  "browser_action": {
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
+  "optional_permissions": ["webRequest"],
+  "host_permissions": ["https://*.clubmahindra.com/*"],
+  "background": {
+    "service_worker": "service-worker.ts",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "sidebar_action": {
-    "default_title": "Club Mahindra Status Checker",
-    "default_panel": "sidebar.html"
+    "default_panel": "sidepanel.html"
   },
   "icons": {
     "16": "icons/icon16.png",

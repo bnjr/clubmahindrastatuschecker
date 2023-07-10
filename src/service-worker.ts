@@ -9,11 +9,7 @@ let memberTypeProfileID = ''
 let contractID = ''
 let memberSeason = ''
 
-browser.runtime.onInstalled.addListener(() => {
-  browser.browserAction.setBadgeBackgroundColor({color: '#4688F1'}) // Set the badge color
-})
-
-browser.webRequest.onBeforeRequest.addListener(
+chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
     if (
       details.method === 'GET' &&
@@ -92,7 +88,7 @@ browser.webRequest.onBeforeRequest.addListener(
   {urls: ['https://*.clubmahindra.com/*']}
 )
 
-browser.webRequest.onBeforeSendHeaders.addListener(
+chrome.webRequest.onBeforeSendHeaders.addListener(
   function (details) {
     let url = new URL(details.url)
 
@@ -121,7 +117,7 @@ browser.webRequest.onBeforeSendHeaders.addListener(
   ['blocking', 'requestHeaders']
 )
 
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   switch (request.command) {
     // Other command handlers...
     case 'checkAvailability':
@@ -139,19 +135,20 @@ function updateSidebar() {
   let loginState = userLoggedIn
     ? 'User logged in.'
     : 'User is not logged in. Please login via Club Mahindra website.'
-  browser.runtime.sendMessage({command: 'updateLogin', loginState})
+  chrome.runtime.sendMessage({command: 'updateLogin', loginState})
 
   if (userLoggedIn) {
     fetchResorts()
   } else {
     // Clear the resorts list when the user logs out
-    browser.runtime.sendMessage({command: 'clearResorts'})
+    chrome.runtime.sendMessage({command: 'clearResorts'})
   }
 }
 
 function fetchResorts() {
   const url =
-    'https://newmembers-api.clubmahindra.com/staticdata/api/v1/getResortFilterCR?portalCode=' + portal
+    'https://newmembers-api.clubmahindra.com/staticdata/api/v1/getResortFilterCR?portalCode=' +
+    portal
 
   fetch(url, {
     method: 'GET',
@@ -167,10 +164,10 @@ function fetchResorts() {
     })
     .then((data) => {
       // Change here: we're now sending the whole data object, not just the resorts.
-      browser.runtime.sendMessage({command: 'updateResorts', data: data.data})
+      chrome.runtime.sendMessage({command: 'updateResorts', data: data.data})
     })
     .catch((error) => {
-      browser.runtime.sendMessage({
+      chrome.runtime.sendMessage({
         command: 'updateLogin',
         loginState: `Error fetching resorts: ${error.toString()}`,
       })
@@ -210,7 +207,7 @@ function checkAvailability(startDate, endDate, crestId) {
     .then((data) => {
       if (data.status === 'success') {
         const status = determineResortStatus(data.data, startDate, endDate)
-        browser.runtime.sendMessage({
+        chrome.runtime.sendMessage({
           command: 'updateResortStatus',
           crest_id: crestId,
           status,
@@ -220,7 +217,7 @@ function checkAvailability(startDate, endDate, crestId) {
       }
     })
     .catch((error) => {
-      browser.runtime.sendMessage({
+      chrome.runtime.sendMessage({
         command: 'updateLogin',
         loginState: `Error fetching availability: ${error.toString()}`,
       })

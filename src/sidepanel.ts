@@ -108,7 +108,7 @@ window.onload = () => {
   }
 
   // Listen for messages from the background script
-  browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     switch (request.command) {
       case 'updateLogin':
         const loginStateElement = document.querySelector('#loginState')
@@ -230,7 +230,7 @@ window.onload = () => {
       if (selectedResorts.length === 0)
         return alert('Please select at least one resort.')
 
-      browser.runtime.sendMessage({
+      chrome.runtime.sendMessage({
         command: 'checkAvailability',
         startDate: startDate.toISOString().slice(0, 10), // Convert back to YYYY-MM-DD format
         endDate: endDate.toISOString().slice(0, 10),
