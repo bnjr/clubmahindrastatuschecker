@@ -2,12 +2,11 @@
   "manifest_version": 3,
   "name": "Club Mahindra Status Checker",
   "description": "Check with availability of Club Mahindra Resorts.",
-  "version": "0.0.1",
-  "permissions": ["sidePanel", "webRequest", "declarativeNetRequest"],
+  "version": "0.0.1.2",
+  "permissions": ["sidePanel", "webRequest"],
   "action": {
     "default_title": "Click to open sidebar"
   },
-  "optional_permissions": ["webRequest"],
   "host_permissions": ["https://*.clubmahindra.com/*"],
   "background": {
     "service_worker": "service-worker.ts",

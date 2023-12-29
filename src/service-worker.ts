@@ -9,6 +9,13 @@ let memberTypeProfileID = ''
 let contractID = ''
 let memberSeason = ''
 
+chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+  // Allow users to open the sidebar by clicking on the action toolbar icon
+  chrome.sidePanel
+    .setPanelBehavior({openPanelOnActionClick: true})
+    .catch((error) => console.error(error))
+})
+
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
     if (
