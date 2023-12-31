@@ -16,6 +16,10 @@
         margin-bottom: 5px;
         padding: 5px;
       }
+      .scrollableContent {
+        max-height: 800px; /* Adjust this value based on your layout */
+        overflow-y: auto; /* Enables vertical scrolling */
+      }
       /* New styles for the input section */
       #inputSection {
         display: none; /* Hide the input section initially */
@@ -84,9 +88,9 @@
       <button id="resetButton">Reset</button>
       <button id="uncheckAllButton">Uncheck All</button>
     </div>
-
-    <div id="resortData"></div>
-
+    <div class="scrollableContent">
+      <div id="resortData"></div>
+    </div>
     <script src="sidebar.ts"></script>
   </body>
 </html>

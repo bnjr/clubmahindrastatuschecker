@@ -10,90 +10,55 @@ let contractID = ''
 let memberSeason = ''
 
 browser.runtime.onInstalled.addListener(() => {
-  browser.browserAction.setBadgeBackgroundColor({color: '#4688F1'}) // Set the badge color
+  browser.browserAction.setBadgeBackgroundColor({ color: '#4688F1' }) // Set the badge color
 })
-
-browser.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    if (
-      details.method === 'GET' &&
-      details.url.includes('https://holidays.clubmahindra.com/ssoLoginCMH')
-    ) {
-      const url = new URL(details.url)
-      const token = url.searchParams.get('token')
-      if (token) {
-        // Make a POST request to verify the token
-        fetch(
-          'https://newmembers-api.clubmahindra.com/booking/api/v1/verifySSOToken',
-          {
-            method: 'POST',
-            body: JSON.stringify({token}),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.status === 'success' && data.data) {
-              sessionToken = 'Bearer ' + data.data.session_token
-              membershipId = data.data.gaData.membership_id
-              portal = data.data.gaData.portal
-              memberId = data.data.memberId
-              userLoggedIn = true
-
-              return fetch(
-                'https://newmembers-api.clubmahindra.com/booking/api/v1/getProfileInfo',
-                {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    memberId,
-                    portalCode: portal,
-                    contracts: [],
-                  }),
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `${sessionToken}`,
-                  },
-                }
-              )
-            } else {
-              throw new Error('Call to verifySSOToken Failed')
-            }
-          })
-          .then((profileResponse) => profileResponse.json())
-          .then((profileData) => {
-            if (profileData.status === 'success' && profileData.data) {
-              memberApertment = profileData.data.memberApertment
-              memberUsagePerDayValue = profileData.data.memberUsagePerDayValue
-              memberTypeProfileID = profileData.data.memberTypeProfileID
-              contractID = profileData.data.contractID
-              memberSeason = profileData.data.memberSeason
-              updateSidebar()
-            }
-          })
-          .catch((error) => {
-            console.error('Error:', error)
-            sessionToken = ''
-            membershipId = ''
-            portal = ''
-            memberId = ''
-            memberApertment = ''
-            memberUsagePerDayValue = ''
-            memberTypeProfileID = ''
-            contractID = ''
-            memberSeason = ''
-            userLoggedIn = false
-            updateSidebar()
-          })
-      }
-    }
-  },
-  {urls: ['https://*.clubmahindra.com/*']}
-)
 
 browser.webRequest.onBeforeSendHeaders.addListener(
   function (details) {
+    if (
+      details.method === 'POST' &&
+      details.url.includes(
+        'https://newmembers-api.clubmahindra.com/booking/api/v1/getProfileInfo'
+      )
+    ) {
+      if (details.requestHeaders) {
+        const headerAuth = details.requestHeaders.find(
+          (header) => header.name === 'Authorization'
+        )
+        sessionToken = headerAuth?.value || ''
+      }
+      let filter = browser.webRequest.filterResponseData(details.requestId)
+      let decoder = new TextDecoder('utf-8')
+      let responseData = ''
+
+      filter.ondata = (event) => {
+        let str = decoder.decode(event.data, { stream: true })
+        responseData += str // Accumulate the data chunks
+        filter.write(event.data)
+      }
+
+      filter.onstop = (event) => {
+        try {
+          let profileData = JSON.parse(responseData) // Parse the complete response data
+          // console.log('Personal Data :', profileData) // Now jsonObj is a JavaScript object
+          if (profileData.status === 'success' && profileData.data) {
+            memberApertment = profileData.data.memberApertment
+            // memberUsagePerDayValue = profileData.data.memberUsagePerDayValue
+            memberTypeProfileID = profileData.data.memberTypeProfileID
+            contractID = profileData.data.contractID
+            memberSeason = profileData.data.contractSeason
+            membershipId = profileData.data.memberMembershipId
+            portal = profileData.data.portalCode
+            memberId = profileData.data.memberId
+            userLoggedIn = true
+            updateSidebar()
+          }
+        } catch (e) {
+          console.error('Error parsing JSON:', e)
+        }
+        filter.close()
+      }
+    }
     let url = new URL(details.url)
 
     if (url.pathname.endsWith('/logout')) {
@@ -117,7 +82,7 @@ browser.webRequest.onBeforeSendHeaders.addListener(
       return
     }
   },
-  {urls: ['https://*.clubmahindra.com/*']},
+  { urls: ['https://*.clubmahindra.com/*'] },
   ['blocking', 'requestHeaders']
 )
 
@@ -139,19 +104,20 @@ function updateSidebar() {
   let loginState = userLoggedIn
     ? 'User logged in.'
     : 'User is not logged in. Please login via Club Mahindra website.'
-  browser.runtime.sendMessage({command: 'updateLogin', loginState})
+  browser.runtime.sendMessage({ command: 'updateLogin', loginState })
 
   if (userLoggedIn) {
     fetchResorts()
   } else {
     // Clear the resorts list when the user logs out
-    browser.runtime.sendMessage({command: 'clearResorts'})
+    browser.runtime.sendMessage({ command: 'clearResorts' })
   }
 }
 
 function fetchResorts() {
   const url =
-    'https://newmembers-api.clubmahindra.com/staticdata/api/v1/getResortFilterCR?portalCode=' + portal
+    'https://newmembers-api.clubmahindra.com/staticdata/api/v1/getResortFilterCR?portalCode=' +
+    portal
 
   fetch(url, {
     method: 'GET',
@@ -167,7 +133,7 @@ function fetchResorts() {
     })
     .then((data) => {
       // Change here: we're now sending the whole data object, not just the resorts.
-      browser.runtime.sendMessage({command: 'updateResorts', data: data.data})
+      browser.runtime.sendMessage({ command: 'updateResorts', data: data.data })
     })
     .catch((error) => {
       browser.runtime.sendMessage({
