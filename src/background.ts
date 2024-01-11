@@ -1,5 +1,12 @@
+const RESORTSURL =
+  'https://newmembers-api.clubmahindra.com/staticdata/api/v1/getResortFilterCR?portalCode='
+const AVAILABILITYURL =
+  'https://newmembers-api.clubmahindra.com/booking/api/v1/getAvailabilityCalendar'
+
 let userLoggedIn = false // To track user login state
+
 let sessionToken = ''
+
 let membershipId = ''
 let portal = ''
 let memberId = ''
@@ -15,58 +22,54 @@ browser.runtime.onInstalled.addListener(() => {
 
 browser.webRequest.onBeforeSendHeaders.addListener(
   function (details) {
-    if (
-      details.method === 'POST' &&
-      details.url.includes(
-        'https://newmembers-api.clubmahindra.com/booking/api/v1/getProfileInfo'
-      )
-    ) {
-      if (details.requestHeaders) {
+    if (details.method === 'POST') {
+      const url = new URL(details.url)
+
+      if (details.requestHeaders && url.pathname.endsWith('getProfileInfo')) {
+        // Session Token
         const headerAuth = details.requestHeaders.find(
-          (header) => header.name === 'Authorization'
+          (header) => header.name.toLowerCase() === 'authorization'
         )
-        sessionToken = headerAuth?.value || ''
-      }
-      let filter = browser.webRequest.filterResponseData(details.requestId)
-      let decoder = new TextDecoder('utf-8')
-      let responseData = ''
-
-      filter.ondata = (event) => {
-        let str = decoder.decode(event.data, { stream: true })
-        responseData += str // Accumulate the data chunks
-        filter.write(event.data)
-      }
-
-      filter.onstop = (event) => {
-        try {
-          let profileData = JSON.parse(responseData) // Parse the complete response data
-          // console.log('Personal Data :', profileData) // Now jsonObj is a JavaScript object
-          if (profileData.status === 'success' && profileData.data) {
-            memberApertment = profileData.data.memberApertment
-            // memberUsagePerDayValue = profileData.data.memberUsagePerDayValue
-            memberTypeProfileID = profileData.data.memberTypeProfileID
-            contractID = profileData.data.contractID
-            memberSeason = profileData.data.contractSeason
-            membershipId = profileData.data.memberMembershipId
-            portal = profileData.data.portalCode
-            memberId = profileData.data.memberId
-            userLoggedIn = true
-            updateSidebar()
-          }
-        } catch (e) {
-          console.error('Error parsing JSON:', e)
+        if (headerAuth?.value) {
+          sessionToken = headerAuth.value.trim()
         }
-        filter.close()
-      }
-    }
-    let url = new URL(details.url)
 
-    if (url.pathname.endsWith('/logout')) {
-      // Matches '/logout' at the end of the URL path
-      // Handle logout
-      if (userLoggedIn) {
-        // Only update sidebar if user was logged in
-        sessionToken = ''
+        // Member Details
+        let filter = browser.webRequest.filterResponseData(details.requestId)
+        let decoder = new TextDecoder('utf-8')
+        let responseData = ''
+        filter.ondata = (event) => {
+          let str = decoder.decode(event.data, { stream: true })
+          responseData += str // Accumulate the data chunks
+          filter.write(event.data)
+        }
+        filter.onstop = () => {
+          try {
+            let profileData = JSON.parse(responseData) // Parse the complete response data
+            if (
+              profileData.status === 'success' &&
+              profileData.data &&
+              sessionToken !== ''
+            ) {
+              memberApertment = profileData.data.memberApertment
+              // memberUsagePerDayValue = profileData.data.memberUsagePerDayValue
+              memberTypeProfileID = profileData.data.memberTypeProfileID
+              contractID = profileData.data.contractID
+              memberSeason = profileData.data.contractSeason
+              membershipId = profileData.data.memberMembershipId
+              portal = profileData.data.portalCode
+              memberId = profileData.data.memberId
+              userLoggedIn = true
+              updateSidebar()
+            }
+          } catch (e) {
+            console.error('Error parsing JSON:', e)
+          }
+          filter.close()
+        }
+      }
+
+      if (url.pathname.endsWith('logout')) {
         membershipId = ''
         portal = ''
         memberId = ''
@@ -75,11 +78,13 @@ browser.webRequest.onBeforeSendHeaders.addListener(
         memberTypeProfileID = ''
         contractID = ''
         memberSeason = ''
+
         userLoggedIn = false
+
+        sessionToken = ''
+
         updateSidebar()
       }
-    } else {
-      return
     }
   },
   { urls: ['https://*.clubmahindra.com/*'] },
@@ -115,9 +120,7 @@ function updateSidebar() {
 }
 
 function fetchResorts() {
-  const url =
-    'https://newmembers-api.clubmahindra.com/staticdata/api/v1/getResortFilterCR?portalCode=' +
-    portal
+  const url = RESORTSURL + portal
 
   fetch(url, {
     method: 'GET',
@@ -161,17 +164,14 @@ function checkAvailability(startDate, endDate, crestId) {
     portalCode: portal,
   }
 
-  fetch(
-    'https://newmembers-api.clubmahindra.com/booking/api/v1/getAvailabilityCalendar',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `${sessionToken}`,
-      },
-      body: JSON.stringify(payload),
-    }
-  )
+  fetch(AVAILABILITYURL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `${sessionToken}`,
+    },
+    body: JSON.stringify(payload),
+  })
     .then((response) => response.json())
     .then((data) => {
       if (data.status === 'success') {
