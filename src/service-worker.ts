@@ -1,5 +1,16 @@
+const PROFILEURL =
+  'https://newmembers-api.clubmahindra.com/booking/api/v1/getProfileInfo'
+const AVAILABILITYURL =
+  'https://newmembers-api.clubmahindra.com/booking/api/v1/getAvailabilityCalendar'
+
 let userLoggedIn = false // To track user login state
+
 let sessionToken = ''
+let memberData: { memberId: string; portalCode: string } = {
+  memberId: '',
+  portalCode: '',
+}
+
 let membershipId = ''
 let portal = ''
 let memberId = ''
@@ -9,102 +20,55 @@ let memberTypeProfileID = ''
 let contractID = ''
 let memberSeason = ''
 
-chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+chrome.tabs.onUpdated.addListener(async () => {
   // Allow users to open the sidebar by clicking on the action toolbar icon
   chrome.sidePanel
-    .setPanelBehavior({openPanelOnActionClick: true})
+    .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.error(error))
 })
 
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
+    const url = new URL(details.url)
     if (
-      details.method === 'GET' &&
-      details.url.includes('https://holidays.clubmahindra.com/ssoLoginCMH')
+      details.method === 'POST' &&
+      details.requestBody &&
+      details.requestBody.raw &&
+      memberData.memberId === '' &&
+      url.pathname.endsWith('getProfileInfo')
     ) {
-      const url = new URL(details.url)
-      const token = url.searchParams.get('token')
-      if (token) {
-        // Make a POST request to verify the token
-        fetch(
-          'https://newmembers-api.clubmahindra.com/booking/api/v1/verifySSOToken',
-          {
-            method: 'POST',
-            body: JSON.stringify({token}),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.status === 'success' && data.data) {
-              sessionToken = 'Bearer ' + data.data.session_token
-              membershipId = data.data.gaData.membership_id
-              portal = data.data.gaData.portal
-              memberId = data.data.memberId
-              userLoggedIn = true
-
-              return fetch(
-                'https://newmembers-api.clubmahindra.com/booking/api/v1/getProfileInfo',
-                {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    memberId,
-                    portalCode: portal,
-                    contracts: [],
-                  }),
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `${sessionToken}`,
-                  },
-                }
-              )
-            } else {
-              throw new Error('Call to verifySSOToken Failed')
-            }
-          })
-          .then((profileResponse) => profileResponse.json())
-          .then((profileData) => {
-            if (profileData.status === 'success' && profileData.data) {
-              memberApertment = profileData.data.memberApertment
-              memberUsagePerDayValue = profileData.data.memberUsagePerDayValue
-              memberTypeProfileID = profileData.data.memberTypeProfileID
-              contractID = profileData.data.contractID
-              memberSeason = profileData.data.memberSeason
-              updateSidebar()
-            }
-          })
-          .catch((error) => {
-            console.error('Error:', error)
-            sessionToken = ''
-            membershipId = ''
-            portal = ''
-            memberId = ''
-            memberApertment = ''
-            memberUsagePerDayValue = ''
-            memberTypeProfileID = ''
-            contractID = ''
-            memberSeason = ''
-            userLoggedIn = false
-            updateSidebar()
-          })
+      let arrayBuffer = details.requestBody.raw[0]?.bytes
+      let dataString = arrayBuffer ? arrayBufferToString(arrayBuffer) : ''
+      try {
+        memberData = JSON.parse(dataString)
+      } catch (e) {
+        console.error('Error parsing JSON:', e)
       }
     }
   },
-  {urls: ['https://*.clubmahindra.com/*']}
+  { urls: ['https://*.clubmahindra.com/*'] },
+  ['requestBody']
 )
 
 chrome.webRequest.onBeforeSendHeaders.addListener(
-  function (details) {
-    let url = new URL(details.url)
+  (details) => {
+    const url = new URL(details.url)
+    if (details.method === 'POST') {
+      if (
+        url.pathname.endsWith('getProfileDetails') &&
+        sessionToken === '' &&
+        details.requestHeaders
+      ) {
+        const headerAuth = details.requestHeaders.find(
+          (header) => header.name.toLowerCase() === 'authorization'
+        )
+        if (headerAuth?.value) {
+          sessionToken = headerAuth.value.trim()
+          triggerRequest()
+        }
+      }
 
-    if (url.pathname.endsWith('/logout')) {
-      // Matches '/logout' at the end of the URL path
-      // Handle logout
-      if (userLoggedIn) {
-        // Only update sidebar if user was logged in
-        sessionToken = ''
+      if (url.pathname.endsWith('logout')) {
         membershipId = ''
         portal = ''
         memberId = ''
@@ -113,18 +77,23 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
         memberTypeProfileID = ''
         contractID = ''
         memberSeason = ''
+
         userLoggedIn = false
+
+        sessionToken = ''
+        memberData = {
+          memberId: '',
+          portalCode: '',
+        }
         updateSidebar()
       }
-    } else {
-      return
     }
   },
-  {urls: ['https://*.clubmahindra.com/*']},
-  ['blocking', 'requestHeaders']
+  { urls: ['https://*.clubmahindra.com/*'] },
+  ['requestHeaders']
 )
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request) => {
   switch (request.command) {
     // Other command handlers...
     case 'checkAvailability':
@@ -138,17 +107,54 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 })
 
+function triggerRequest() {
+  if (
+    sessionToken !== '' &&
+    memberData.memberId !== '' &&
+    userLoggedIn === false
+  )
+    fetch(PROFILEURL, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json, text/plain, */*',
+        'content-type': 'application/json',
+        authorization: sessionToken,
+        Referer: 'https://holidays.clubmahindra.com/',
+        'Referrer-Policy': 'strict-origin',
+      },
+      body: JSON.stringify(memberData),
+    })
+      .then((response) => response.json())
+      .then((profileData) => {
+        if (profileData.status === 'success' && profileData.data) {
+          memberApertment = profileData.data.memberApertment
+          // memberUsagePerDayValue = profileData.data.memberUsagePerDayValue
+          memberTypeProfileID = profileData.data.memberTypeProfileID
+          contractID = profileData.data.contractID
+          memberSeason = profileData.data.contractSeason
+          membershipId = profileData.data.memberMembershipId
+          portal = profileData.data.portalCode
+          memberId = profileData.data.memberId
+          userLoggedIn = true
+          updateSidebar()
+        }
+      })
+      .catch((error) => {
+        console.error('Fetch Error:', error)
+      })
+}
+
 function updateSidebar() {
   let loginState = userLoggedIn
     ? 'User logged in.'
     : 'User is not logged in. Please login via Club Mahindra website.'
-  chrome.runtime.sendMessage({command: 'updateLogin', loginState})
+  chrome.runtime.sendMessage({ command: 'updateLogin', loginState })
 
   if (userLoggedIn) {
     fetchResorts()
   } else {
     // Clear the resorts list when the user logs out
-    chrome.runtime.sendMessage({command: 'clearResorts'})
+    chrome.runtime.sendMessage({ command: 'clearResorts' })
   }
 }
 
@@ -170,8 +176,7 @@ function fetchResorts() {
       return response.json()
     })
     .then((data) => {
-      // Change here: we're now sending the whole data object, not just the resorts.
-      chrome.runtime.sendMessage({command: 'updateResorts', data: data.data})
+      chrome.runtime.sendMessage({ command: 'updateResorts', data: data.data })
     })
     .catch((error) => {
       chrome.runtime.sendMessage({
@@ -182,7 +187,6 @@ function fetchResorts() {
 }
 
 function checkAvailability(startDate, endDate, crestId) {
-  // Fill in the necessary fields in this object. It will vary depending on your specific setup.
   const payload = {
     checkIn: startDate,
     checkOut: endDate,
@@ -199,17 +203,14 @@ function checkAvailability(startDate, endDate, crestId) {
     portalCode: portal,
   }
 
-  fetch(
-    'https://newmembers-api.clubmahindra.com/booking/api/v1/getAvailabilityCalendar',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `${sessionToken}`,
-      },
-      body: JSON.stringify(payload),
-    }
-  )
+  fetch(AVAILABILITYURL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `${sessionToken}`,
+    },
+    body: JSON.stringify(payload),
+  })
     .then((response) => response.json())
     .then((data) => {
       if (data.status === 'success') {
@@ -230,6 +231,7 @@ function checkAvailability(startDate, endDate, crestId) {
       })
     })
 }
+
 function determineResortStatus(data, startDate, endDate) {
   // Assume the status is 'Available' and update if necessary
   let status = 'Available'
@@ -259,4 +261,9 @@ function determineResortStatus(data, startDate, endDate) {
   }
 
   return status
+}
+
+function arrayBufferToString(buffer) {
+  let decoder = new TextDecoder('utf-8')
+  return decoder.decode(buffer)
 }
